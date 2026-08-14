@@ -821,7 +821,7 @@ local function GetLeadShotPosition(targetRootPart)
     local currentPos = targetRootPart.Position
     if Config.LeadShot then 
         local ping = Stats.Network.ServerStatsItem["Data Ping"]:GetValue() / 1001
-        currentPos = currentPos + (targetRootPart.Velocity * ping * 1.9) 
+        currentPos = currentPos + (targetRootPart.Velocity * ping * 1.7) 
     end
     return currentPos
 end
@@ -1056,7 +1056,7 @@ oldnamecall = hookmetamethod(game, "__namecall", function(...)
         
         if hitpart then
             local origin = arguments[2]
-            local direction = getdirection(origin, hitpart.Position) * 5000
+            local direction = getdirection(origin, hitpart.Position) * 1000
             arguments[3] = direction
             return oldnamecall(unpack(arguments))
         end
@@ -1067,7 +1067,7 @@ oldnamecall = hookmetamethod(game, "__namecall", function(...)
         
         if hitpart then
             local origin = arguments[2]
-            local direction = getdirection(origin, hitpart.Position) * 5000
+            local direction = getdirection(origin, hitpart.Position) * 1000
             arguments[3] = direction
             return oldnamecall(unpack(arguments))
         end
