@@ -1,8 +1,6 @@
 --!strict
-
 -- Configuration
 local CONFIG = {
-    INVISIBILITY_POSITION = Vector3.new(0, 20, 0),
     DEFAULT_SPEED = 16,
     BOOSTED_SPEED = 48,
     BACKGROUND_COLOR = Color3.fromRGB(11, 11, 13),
@@ -12,32 +10,85 @@ local CONFIG = {
     DANGER_COLOR = Color3.fromRGB(255, 55, 55),
     TEXT_COLOR = Color3.fromRGB(245, 245, 245),
 }
-
 -- Services
 local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
 local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local StarterGui = game:GetService("StarterGui")
-
 -- Variables
 local player = Players.LocalPlayer
 local playerState = {
-    isInvisible = false,
+    isBurlaActive = false, -- ✅ Sistema de Burla/Mimimi
     isSpeedBoosted = false,
     isNoclip = false,
     isInfJump = false,
-    isFlying = false, -- Reemplazado FC por vuelo
+    isFlying = false,
     walkSpeed = CONFIG.BOOSTED_SPEED,
     originalSpeed = CONFIG.DEFAULT_SPEED,
     lastJumpTime = 0,
 }
 
--- ✅ SISTEMA DE VUELO NUEVO (PC + MÓVIL)
+-- =============================================
+-- SISTEMA DE BURLA / GESTO "MIMIMI" AUTOMÁTICO
+-- =============================================
+local TauntEvent = ReplicatedStorage.Remotes:WaitForChild("TauntEvent")
+local BucleBurlaActivo = false
+local ConexionBurla = nil
+
+-- ⚙️ CONFIGURACIÓN DE LA BURLA
+local ConfigBurla = {
+    NombreDelGesto = "Mimimi",
+    VecesPorSegundo = 2,
+    RepetirSiempre = true,
+    MostrarMensajes = true
+}
+local TiempoEntreLlamados = 1 / ConfigBurla.VecesPorSegundo
+
+local function ActivarBurla()
+    if BucleBurlaActivo then return end
+    BucleBurlaActivo = true
+
+    print("✅ TauntEvent encontrado correctamente!")
+    print("🎵 Gesto: " .. ConfigBurla.NombreDelGesto)
+    print("⏱️ Cada " .. TiempoEntreLlamados .. " segundos")
+    print("🚀 BURLA ACTIVADA...")
+
+    ConexionBurla = task.spawn(function()
+        while BucleBurlaActivo and ConfigBurla.RepetirSiempre do
+            task.wait(TiempoEntreLlamados)
+            if not BucleBurlaActivo then break end
+
+            local exito, errorMsg = pcall(function()
+                TauntEvent:FireServer(ConfigBurla.NombreDelGesto)
+            end)
+
+            if ConfigBurla.MostrarMensajes then
+                if exito then
+                    print("🎵 ¡MIMIMI! ✅")
+                else
+                    print("❌ Bloqueado: " .. tostring(errorMsg))
+                end
+            end
+        end
+    end)
+end
+
+local function DesactivarBurla()
+    BucleBurlaActivo = false
+    if ConexionBurla then
+        task.cancel(ConexionBurla)
+        ConexionBurla = nil
+    end
+    print("🛑 BURLA DESACTIVADA")
+end
+
+-- ✅ SISTEMA DE VUELO
 local FLYING = false
 local QEfly = true
-local iyflyspeed = 1 -- Velocidad base
+local iyflyspeed = 1
 local flyKeyDown, flyKeyUp
 local IsOnMobile = UserInputService.TouchEnabled
 local velocityHandlerName = "Fly_" .. math.random(100000, 999999)
@@ -204,85 +255,19 @@ end
 -- GUI Elements
 local screenGui: ScreenGui
 local mainFrame: Frame
-local toggleButton: TextButton
+local burlaButton: TextButton
 local speedButton: TextButton
 local noclipButton: TextButton
 local infJumpButton: TextButton
-local flyButton: TextButton -- Botón de vuelo
+local flyButton: TextButton
 local closeButton: TextButton
-local statusLabel: TextLabel 
-local statusCircle: Frame
 local speedValueBox: TextBox
-local flyValueBox: TextBox -- Caja de velocidad de vuelo
+local flyValueBox: TextBox
 
 -- Utility Functions
-local function setCharacterTransparency(character: Model, transparency: number): ()
-    for _, descendant in character:GetDescendants() do
-        if descendant:IsA("BasePart") or descendant:IsA("Decal") then
-            descendant.Transparency = transparency
-        end
-    end
-end
-
 local function getHumanoid(): Humanoid?
     local character = player.Character
     return character and character:FindFirstChild("Humanoid") :: Humanoid?
-end
-
-local function updateStatusUI()
-    if not statusLabel or not statusCircle then return end
-    if playerState.isInvisible then
-        statusLabel.Text = "SYSTEM: ACTIVE"
-        TweenService:Create(statusCircle, TweenInfo.new(0.3), {BackgroundColor3 = CONFIG.SUCCESS_COLOR}):Play()
-        local stroke = statusCircle:FindFirstChildOfClass("UIStroke")
-        if stroke then
-            TweenService:Create(stroke, TweenInfo.new(0.3), {Color = CONFIG.SUCCESS_COLOR, Transparency = 0.4}):Play()
-        end
-    else
-        statusLabel.Text = "SYSTEM: INACTIVE"
-        TweenService:Create(statusCircle, TweenInfo.new(0.3), {BackgroundColor3 = CONFIG.DANGER_COLOR}):Play()
-        local stroke = statusCircle:FindFirstChildOfClass("UIStroke")
-        if stroke then
-            TweenService:Create(stroke, TweenInfo.new(0.3), {Color = CONFIG.DANGER_COLOR, Transparency = 0.5}):Play()
-        end
-    end
-end
-
--- Invisibility
-local function toggleInvisibility()
-    if not player.Character then return end
-    playerState.isInvisible = not playerState.isInvisible
-    if playerState.isInvisible then
-        local hrp = getRoot(player.Character)
-        if not hrp then return end
-        local savedPosition = hrp.CFrame
-        player.Character:MoveTo(CONFIG.INVISIBILITY_POSITION)
-        task.wait(0.15)
-        local seat = Instance.new("Seat")
-        seat.Name = "InvisChair"
-        seat.Anchored = false
-        seat.CanCollide = false
-        seat.Transparency = 1
-        seat.Position = CONFIG.INVISIBILITY_POSITION
-        seat.Parent = workspace
-        local torso = player.Character:FindFirstChild("UpperTorso") or player.Character:FindFirstChild("Torso")
-        if torso then
-            local weld = Instance.new("Weld")
-            weld.Part0 = seat
-            weld.Part1 = torso
-            weld.Parent = seat
-        end
-        task.wait()
-        seat.CFrame = savedPosition
-        setCharacterTransparency(player.Character, 0.5)
-        toggleButton.Text = "BECOME VISIBLE"
-    else
-        local invisChair = workspace:FindFirstChild("InvisChair")
-        if invisChair then invisChair:Destroy() end
-        if player.Character then setCharacterTransparency(player.Character, 0) end
-        toggleButton.Text = "BECOME INVISIBLE"
-    end
-    updateStatusUI()
 end
 
 -- Speed Boost
@@ -339,7 +324,21 @@ local function toggleInfJump()
     end
 end
 
--- ✅ FUNCIÓN PARA ACTIVAR/DESACTIVAR VUELO
+-- ✅ FUNCIÓN DEL BOTÓN BURLA (Activa/Desactiva el gesto Mimimi)
+local function toggleBurla()
+    playerState.isBurlaActive = not playerState.isBurlaActive
+    if playerState.isBurlaActive then
+        ActivarBurla()
+        burlaButton.Text = "BURLA: ON"
+        TweenService:Create(burlaButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.SUCCESS_COLOR}):Play()
+    else
+        DesactivarBurla()
+        burlaButton.Text = "BURLA"
+        TweenService:Create(burlaButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.DANGER_COLOR}):Play()
+    end
+end
+
+-- ✅ FUNCIÓN VUELO
 local function toggleFly()
     playerState.isFlying = not playerState.isFlying
     if playerState.isFlying then
@@ -361,7 +360,6 @@ local function antiPausa()
         StarterGui:SetCore("ResetButtonCallback", function() end)
     end)
 end
-
 RunService.Heartbeat:Connect(antiPausa)
 
 -- GUI Creation
@@ -373,21 +371,19 @@ local function createGUI()
     screenGui.Parent = player:WaitForChild("PlayerGui")
 
     mainFrame = Instance.new("Frame")
-    mainFrame.Size = UDim2.new(0, 200, 0, 420)
+    mainFrame.Size = UDim2.new(0, 200, 0, 370)
     mainFrame.Position = UDim2.new(0.5, -100, 0, -350)
     mainFrame.BackgroundColor3 = CONFIG.BACKGROUND_COLOR
     mainFrame.BorderSizePixel = 0
     mainFrame.Active = true
     mainFrame.Draggable = true
     mainFrame.Parent = screenGui
-
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
     local mStroke = Instance.new("UIStroke", mainFrame)
     mStroke.Color = Color3.fromRGB(255, 255, 255)
     mStroke.Transparency = 0.94
     mStroke.Thickness = 1
-
-    TweenService:Create(mainFrame, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -100, 0.5, -210)}):Play()
+    TweenService:Create(mainFrame, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -100, 0.5, -185)}):Play()
 
     local titleLabel = Instance.new("TextLabel")
     titleLabel.Size = UDim2.new(1, 0, 0, 40)
@@ -405,7 +401,6 @@ local function createGUI()
         s.ApplyStrokeMode = Enum.ApplyStrokeMode.Border
         s.Color = Color3.fromRGB(255, 255, 255)
         s.Transparency = 0.9
-
         btn.MouseEnter:Connect(function()
             TweenService:Create(s, TweenInfo.new(0.2), {Transparency = 0.5, Color = CONFIG.PRIMARY_COLOR}):Play()
         end)
@@ -416,24 +411,25 @@ local function createGUI()
 
     local y = 50
 
-    toggleButton = Instance.new("TextButton")
-    toggleButton.Size = UDim2.new(1, -28, 0, 42)
-    toggleButton.Position = UDim2.new(0, 14, 0, y)
-    toggleButton.Text = "BECOME INVISIBLE"
-    toggleButton.BackgroundColor3 = CONFIG.ACCENT_COLOR
-    toggleButton.TextColor3 = CONFIG.TEXT_COLOR
-    toggleButton.Font = Enum.Font.GothamBold
-    toggleButton.TextSize = 10
-    toggleButton.AutoButtonColor = false
-    toggleButton.Parent = mainFrame
-    style(toggleButton)
+    -- ✅ BOTÓN DE BURLA (en lugar de Invisibilidad)
+    burlaButton = Instance.new("TextButton")
+    burlaButton.Size = UDim2.new(1, -28, 0, 42)
+    burlaButton.Position = UDim2.new(0, 14, 0, y)
+    burlaButton.Text = "BURLA"
+    burlaButton.BackgroundColor3 = CONFIG.ACCENT_COLOR
+    burlaButton.TextColor3 = CONFIG.DANGER_COLOR -- Rojo = desactivado por defecto
+    burlaButton.Font = Enum.Font.GothamBold
+    burlaButton.TextSize = 10
+    burlaButton.AutoButtonColor = false
+    burlaButton.Parent = mainFrame
+    style(burlaButton)
     y += 50
 
+    -- Velocidad
     local speedFrame = Instance.new("Frame", mainFrame)
     speedFrame.Size = UDim2.new(1, -28, 0, 42)
     speedFrame.Position = UDim2.new(0, 14, 0, y)
     speedFrame.BackgroundTransparency = 1
-
     speedButton = Instance.new("TextButton", speedFrame)
     speedButton.Size = UDim2.new(0.6, -5, 1, 0)
     speedButton.Text = "SPEED BOOST"
@@ -443,7 +439,6 @@ local function createGUI()
     speedButton.TextSize = 10
     speedButton.AutoButtonColor = false
     style(speedButton)
-
     speedValueBox = Instance.new("TextBox", speedFrame)
     speedValueBox.Size = UDim2.new(0.4, -5, 1, 0)
     speedValueBox.Position = UDim2.new(0.6, 5, 0, 0)
@@ -463,6 +458,7 @@ local function createGUI()
     end)
     y += 50
 
+    -- Noclip
     noclipButton = Instance.new("TextButton")
     noclipButton.Size = UDim2.new(1, -28, 0, 42)
     noclipButton.Position = UDim2.new(0, 14, 0, y)
@@ -476,6 +472,7 @@ local function createGUI()
     style(noclipButton)
     y += 50
 
+    -- Salto Infinito
     infJumpButton = Instance.new("TextButton")
     infJumpButton.Size = UDim2.new(1, -28, 0, 42)
     infJumpButton.Position = UDim2.new(0, 14, 0, y)
@@ -489,12 +486,11 @@ local function createGUI()
     style(infJumpButton)
     y += 50
 
-    -- BOTÓN DE VUELO
+    -- Vuelo
     local flyFrame = Instance.new("Frame", mainFrame)
     flyFrame.Size = UDim2.new(1, -28, 0, 42)
     flyFrame.Position = UDim2.new(0, 14, 0, y)
     flyFrame.BackgroundTransparency = 1
-
     flyButton = Instance.new("TextButton", flyFrame)
     flyButton.Size = UDim2.new(0.6, -5, 1, 0)
     flyButton.Text = "FLY"
@@ -504,7 +500,6 @@ local function createGUI()
     flyButton.TextSize = 10
     flyButton.AutoButtonColor = false
     style(flyButton)
-
     flyValueBox = Instance.new("TextBox", flyFrame)
     flyValueBox.Size = UDim2.new(0.4, -5, 1, 0)
     flyValueBox.Position = UDim2.new(0.6, 5, 0, 0)
@@ -514,7 +509,6 @@ local function createGUI()
     flyValueBox.Font = Enum.Font.GothamBold
     flyValueBox.TextSize = 10
     Instance.new("UICorner", flyValueBox).CornerRadius = UDim.new(0, 10)
-    -- Cambiar velocidad del vuelo
     flyValueBox.FocusLost:Connect(function()
         local newFlySpeed = tonumber(flyValueBox.Text)
         if newFlySpeed and newFlySpeed > 0 then
@@ -524,38 +518,7 @@ local function createGUI()
     end)
     y += 50
 
-    statusCircle = Instance.new("Frame")
-    statusCircle.Size = UDim2.new(0, 8, 0, 8)
-    statusCircle.Position = UDim2.new(0.5, -4, 0, 370)
-    statusCircle.BackgroundColor3 = CONFIG.DANGER_COLOR
-    statusCircle.Parent = mainFrame
-    Instance.new("UICorner", statusCircle).CornerRadius = UDim.new(1, 0)
-    local glowCircle = Instance.new("UIStroke", statusCircle)
-    glowCircle.Thickness = 2
-    glowCircle.Color = CONFIG.DANGER_COLOR
-    glowCircle.Transparency = 0.5
-
-    statusLabel = Instance.new("TextLabel")
-    statusLabel.Size = UDim2.new(1, 0, 0, 18)
-    statusLabel.Position = UDim2.new(0, 0, 0, 382)
-    statusLabel.Text = "SYSTEM: INACTIVE"
-    statusLabel.BackgroundTransparency = 1
-    statusLabel.TextColor3 = Color3.fromRGB(150, 150, 150)
-    statusLabel.Font = Enum.Font.GothamBold
-    statusLabel.TextSize = 8
-    statusLabel.Parent = mainFrame
-
-    local footer = Instance.new("TextLabel")
-    footer.Size = UDim2.new(1, 0, 0, 15)
-    footer.Position = UDim2.new(0, 0, 1, -15)
-    footer.Text = "by ziaa on scriptblox"
-    footer.BackgroundTransparency = 1
-    footer.TextColor3 = Color3.fromRGB(255, 255, 255)
-    footer.TextTransparency = 0.5
-    footer.Font = Enum.Font.GothamBold
-    footer.TextSize = 6
-    footer.Parent = mainFrame
-
+    -- Botón Cerrar
     closeButton = Instance.new("TextButton")
     closeButton.Size = UDim2.new(0, 24, 0, 24)
     closeButton.Position = UDim2.new(1, -30, 0, 8)
@@ -566,11 +529,11 @@ local function createGUI()
     closeButton.TextSize = 16
     closeButton.Parent = mainFrame
     Instance.new("UICorner", closeButton).CornerRadius = UDim.new(1, 0)
-
     closeButton.MouseButton1Click:Connect(function()
         mainFrame.Visible = false
     end)
 
+    -- Botón flotante para abrir menú
     local openButton = Instance.new("TextButton", screenGui)
     openButton.Size = UDim2.new(0, 60, 0, 50)
     openButton.Position = UDim2.new(1, -70, 0, 10)
@@ -585,13 +548,65 @@ local function createGUI()
     end)
 end
 
--- Iniciar
+-- Iniciar GUI
 createGUI()
 
 -- Conexiones de botones
-toggleButton.MouseButton1Click:Connect(toggleInvisibility)
+burlaButton.MouseButton1Click:Connect(toggleBurla)
 speedButton.MouseButton1Click:Connect(toggleSpeedBoost)
 noclipButton.MouseButton1Click:Connect(toggleNoclip)
+infJumpButton.MouseButton1Click:Connect(toggleInfJump)
+flyButton.MouseButton1Click:Connect(toggleFly)
+
+-- Recargar al revivir
+player.CharacterAdded:Connect(function(newChar)
+    task.wait(0.5)
+    applySpeed()
+    if playerState.isFlying then
+        NOFLY()
+        playerState.isFlying = false
+        flyButton.Text = "FLY"
+        TweenService:Create(flyButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.TEXT_COLOR}):Play()
+    end
+    -- Detener burla al revivir
+    if playerState.isBurlaActive then
+        DesactivarBurla()
+        playerState.isBurlaActive = false
+        burlaButton.Text = "BURLA"
+        TweenService:Create(burlaButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.DANGER_COLOR}):Play()
+    end
+end)
+
+-- Noclip continuo
+RunService.Stepped:Connect(function()
+    if playerState.isNoclip and player.Character then
+        for _, part in pairs(player.Character:GetDescendants()) do
+            if part:IsA("BasePart") and part.CanCollide then
+                part.CanCollide = false
+            end
+        end
+    end
+end)
+
+-- Salto infinito
+UserInputService.JumpRequest:Connect(function()
+    if not playerState.isInfJump then return end
+    local hum = getHumanoid()
+    local now = os.clock()
+    if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping and now - playerState.lastJumpTime > 0.1 then
+        hum:ChangeState(Enum.HumanoidStateType.Jumping)
+        playerState.lastJumpTime = now
+    end
+end)
+
+-- Mantener velocidad
+RunService.Heartbeat:Connect(function()
+    if playerState.isSpeedBoosted and not playerState.isFlying then
+        applySpeed()
+    end
+end)
+
+print("✅ SCRIPT CARGADO CORRECTAMENTE")MouseButton1Click:Connect(toggleNoclip)
 infJumpButton.MouseButton1Click:Connect(toggleInfJump)
 flyButton.MouseButton1Click:Connect(toggleFly)
 
