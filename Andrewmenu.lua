@@ -1,5 +1,7 @@
 --!strict
--- Configuration
+-- =============================================
+-- CONFIGURACIÓN GENERAL
+-- =============================================
 local CONFIG = {
     DEFAULT_SPEED = 16,
     BOOSTED_SPEED = 48,
@@ -10,7 +12,10 @@ local CONFIG = {
     DANGER_COLOR = Color3.fromRGB(255, 55, 55),
     TEXT_COLOR = Color3.fromRGB(245, 245, 245),
 }
--- Services
+
+-- =============================================
+-- SERVICIOS
+-- =============================================
 local Players = game:GetService("Players")
 local ReplicatedStorage = game:GetService("ReplicatedStorage")
 local UserInputService = game:GetService("UserInputService")
@@ -18,10 +23,36 @@ local TweenService = game:GetService("TweenService")
 local RunService = game:GetService("RunService")
 local ContextActionService = game:GetService("ContextActionService")
 local StarterGui = game:GetService("StarterGui")
--- Variables
+
+-- =============================================
+-- ✅ RESTAURACIÓN AUTOMÁTICA DEL BOTÓN DE REINICIO
+-- =============================================
+local function activarBotonReset()
+    local exito, errorMsg = pcall(function()
+        StarterGui:SetCore("ResetButtonCallback", true)
+    end)
+    if not exito then
+        task.wait(1)
+        activarBotonReset()
+    end
+end
+
+-- Intento inmediato y reintentos automáticos
+local intento, _ = pcall(function()
+    StarterGui:SetCore("ResetButtonCallback", true)
+end)
+if not intento then
+    task.wait(1)
+    activarBotonReset()
+end
+print("✅ Botón de Reinicio restaurado automáticamente")
+
+-- =============================================
+-- VARIABLES DEL JUGADOR
+-- =============================================
 local player = Players.LocalPlayer
 local playerState = {
-    isBurlaActive = false, -- ✅ Sistema de Burla/Mimimi
+    isBurlaActive = false,
     isSpeedBoosted = false,
     isNoclip = false,
     isInfJump = false,
@@ -32,13 +63,12 @@ local playerState = {
 }
 
 -- =============================================
--- SISTEMA DE BURLA / GESTO "MIMIMI" AUTOMÁTICO
+-- SISTEMA DE BURLA / GESTO "MIMIMI"
 -- =============================================
 local TauntEvent = ReplicatedStorage.Remotes:WaitForChild("TauntEvent")
 local BucleBurlaActivo = false
 local ConexionBurla = nil
 
--- ⚙️ CONFIGURACIÓN DE LA BURLA
 local ConfigBurla = {
     NombreDelGesto = "Mimimi",
     VecesPorSegundo = 2,
@@ -50,21 +80,17 @@ local TiempoEntreLlamados = 1 / ConfigBurla.VecesPorSegundo
 local function ActivarBurla()
     if BucleBurlaActivo then return end
     BucleBurlaActivo = true
-
     print("✅ TauntEvent encontrado correctamente!")
     print("🎵 Gesto: " .. ConfigBurla.NombreDelGesto)
     print("⏱️ Cada " .. TiempoEntreLlamados .. " segundos")
     print("🚀 BURLA ACTIVADA...")
-
     ConexionBurla = task.spawn(function()
         while BucleBurlaActivo and ConfigBurla.RepetirSiempre do
             task.wait(TiempoEntreLlamados)
             if not BucleBurlaActivo then break end
-
             local exito, errorMsg = pcall(function()
                 TauntEvent:FireServer(ConfigBurla.NombreDelGesto)
             end)
-
             if ConfigBurla.MostrarMensajes then
                 if exito then
                     print("🎵 ¡MIMIMI! ✅")
@@ -85,7 +111,9 @@ local function DesactivarBurla()
     print("🛑 BURLA DESACTIVADA")
 end
 
--- ✅ SISTEMA DE VUELO
+-- =============================================
+-- SISTEMA DE VUELO
+-- =============================================
 local FLYING = false
 local QEfly = true
 local iyflyspeed = 1
@@ -252,7 +280,9 @@ function ActivarVuelo()
     end
 end
 
--- GUI Elements
+-- =============================================
+-- ELEMENTOS DE LA INTERFAZ
+-- =============================================
 local screenGui: ScreenGui
 local mainFrame: Frame
 local burlaButton: TextButton
@@ -264,13 +294,15 @@ local closeButton: TextButton
 local speedValueBox: TextBox
 local flyValueBox: TextBox
 
--- Utility Functions
+-- =============================================
+-- FUNCIONES AUXILIARES
+-- =============================================
 local function getHumanoid(): Humanoid?
     local character = player.Character
     return character and character:FindFirstChild("Humanoid") :: Humanoid?
 end
 
--- Speed Boost
+-- Velocidad
 local function applySpeed()
     local humanoid = getHumanoid()
     if not humanoid then return end
@@ -312,7 +344,7 @@ local function toggleNoclip()
     end
 end
 
--- Infinite Jump
+-- Salto Infinito
 local function toggleInfJump()
     playerState.isInfJump = not playerState.isInfJump
     if playerState.isInfJump then
@@ -324,7 +356,7 @@ local function toggleInfJump()
     end
 end
 
--- ✅ FUNCIÓN DEL BOTÓN BURLA (Activa/Desactiva el gesto Mimimi)
+-- Botón Burla
 local function toggleBurla()
     playerState.isBurlaActive = not playerState.isBurlaActive
     if playerState.isBurlaActive then
@@ -338,7 +370,7 @@ local function toggleBurla()
     end
 end
 
--- ✅ FUNCIÓN VUELO
+-- Botón Vuelo
 local function toggleFly()
     playerState.isFlying = not playerState.isFlying
     if playerState.isFlying then
@@ -353,16 +385,9 @@ local function toggleFly()
     end
 end
 
--- AntiPausa
-local function antiPausa()
-    pcall(function()
-        StarterGui:SetCore("GameplayPaused", false)
-        StarterGui:SetCore("ResetButtonCallback", function() end)
-    end)
-end
-RunService.Heartbeat:Connect(antiPausa)
-
--- GUI Creation
+-- =============================================
+-- CREACIÓN DE LA INTERFAZ
+-- =============================================
 local function createGUI()
     screenGui = Instance.new("ScreenGui")
     screenGui.Name = "Ziaa_FE_Refined"
@@ -379,10 +404,12 @@ local function createGUI()
     mainFrame.Draggable = true
     mainFrame.Parent = screenGui
     Instance.new("UICorner", mainFrame).CornerRadius = UDim.new(0, 14)
+
     local mStroke = Instance.new("UIStroke", mainFrame)
     mStroke.Color = Color3.fromRGB(255, 255, 255)
     mStroke.Transparency = 0.94
     mStroke.Thickness = 1
+
     TweenService:Create(mainFrame, TweenInfo.new(0.8, Enum.EasingStyle.Back, Enum.EasingDirection.Out), {Position = UDim2.new(0.5, -100, 0.5, -185)}):Play()
 
     local titleLabel = Instance.new("TextLabel")
@@ -411,13 +438,13 @@ local function createGUI()
 
     local y = 50
 
-    -- ✅ BOTÓN DE BURLA (en lugar de Invisibilidad)
+    -- Botón Burla
     burlaButton = Instance.new("TextButton")
     burlaButton.Size = UDim2.new(1, -28, 0, 42)
     burlaButton.Position = UDim2.new(0, 14, 0, y)
     burlaButton.Text = "BURLA"
     burlaButton.BackgroundColor3 = CONFIG.ACCENT_COLOR
-    burlaButton.TextColor3 = CONFIG.DANGER_COLOR -- Rojo = desactivado por defecto
+    burlaButton.TextColor3 = CONFIG.DANGER_COLOR
     burlaButton.Font = Enum.Font.GothamBold
     burlaButton.TextSize = 10
     burlaButton.AutoButtonColor = false
@@ -430,6 +457,7 @@ local function createGUI()
     speedFrame.Size = UDim2.new(1, -28, 0, 42)
     speedFrame.Position = UDim2.new(0, 14, 0, y)
     speedFrame.BackgroundTransparency = 1
+
     speedButton = Instance.new("TextButton", speedFrame)
     speedButton.Size = UDim2.new(0.6, -5, 1, 0)
     speedButton.Text = "SPEED BOOST"
@@ -439,6 +467,7 @@ local function createGUI()
     speedButton.TextSize = 10
     speedButton.AutoButtonColor = false
     style(speedButton)
+
     speedValueBox = Instance.new("TextBox", speedFrame)
     speedValueBox.Size = UDim2.new(0.4, -5, 1, 0)
     speedValueBox.Position = UDim2.new(0.6, 5, 0, 0)
@@ -491,6 +520,7 @@ local function createGUI()
     flyFrame.Size = UDim2.new(1, -28, 0, 42)
     flyFrame.Position = UDim2.new(0, 14, 0, y)
     flyFrame.BackgroundTransparency = 1
+
     flyButton = Instance.new("TextButton", flyFrame)
     flyButton.Size = UDim2.new(0.6, -5, 1, 0)
     flyButton.Text = "FLY"
@@ -500,6 +530,7 @@ local function createGUI()
     flyButton.TextSize = 10
     flyButton.AutoButtonColor = false
     style(flyButton)
+
     flyValueBox = Instance.new("TextBox", flyFrame)
     flyValueBox.Size = UDim2.new(0.4, -5, 1, 0)
     flyValueBox.Position = UDim2.new(0.6, 5, 0, 0)
@@ -548,7 +579,9 @@ local function createGUI()
     end)
 end
 
--- Iniciar GUI
+-- =============================================
+-- INICIO Y CONEXIONES
+-- =============================================
 createGUI()
 
 -- Conexiones de botones
@@ -568,13 +601,15 @@ player.CharacterAdded:Connect(function(newChar)
         flyButton.Text = "FLY"
         TweenService:Create(flyButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.TEXT_COLOR}):Play()
     end
-    -- Detener burla al revivir
     if playerState.isBurlaActive then
         DesactivarBurla()
         playerState.isBurlaActive = false
         burlaButton.Text = "BURLA"
         TweenService:Create(burlaButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.DANGER_COLOR}):Play()
     end
+    -- Reactivar botón de reinicio al respawnear
+    task.wait(0.5)
+    activarBotonReset()
 end)
 
 -- Noclip continuo
@@ -606,50 +641,4 @@ RunService.Heartbeat:Connect(function()
     end
 end)
 
-print("✅ SCRIPT CARGADO CORRECTAMENTE")MouseButton1Click:Connect(toggleNoclip)
-infJumpButton.MouseButton1Click:Connect(toggleInfJump)
-flyButton.MouseButton1Click:Connect(toggleFly)
-
--- Recargar al revivir
-player.CharacterAdded:Connect(function(newChar)
-    task.wait(0.5)
-    applySpeed()
-    -- Desactivar vuelo al revivir
-    if playerState.isFlying then
-        NOFLY()
-        playerState.isFlying = false
-        flyButton.Text = "FLY"
-        TweenService:Create(flyButton, TweenInfo.new(0.3), {TextColor3 = CONFIG.TEXT_COLOR}):Play()
-    end
-end)
-
--- Noclip
-RunService.Stepped:Connect(function()
-    if playerState.isNoclip and player.Character then
-        for _, part in pairs(player.Character:GetDescendants()) do
-            if part:IsA("BasePart") and part.CanCollide then
-                part.CanCollide = false
-            end
-        end
-    end
-end)
-
--- Salto infinito
-UserInputService.JumpRequest:Connect(function()
-    if not playerState.isInfJump then return end
-    local hum = getHumanoid()
-    local now = os.clock()
-    if hum and hum:GetState() ~= Enum.HumanoidStateType.Jumping and now - playerState.lastJumpTime > 0.1 then
-        hum:ChangeState(Enum.HumanoidStateType.Jumping)
-        playerState.lastJumpTime = now
-    end
-end)
-
-  print("ready")
-
--- Mantener velocidad
-RunService.Heartbeat:Connect(function()
-    if playerState.isSpeedBoosted and not playerState.isFlying then
-        applySpeed()
-    end
-end)
+print("✅ SCRIPT CARGADO CORRECTAMENTE")
